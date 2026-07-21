@@ -9,28 +9,33 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// CORS Configuration
+// CORS Configuration for local & production deployment
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5173'
-];
+]
+
 if (process.env.CORS_ORIGIN) {
-  allowedOrigins.push(...process.env.CORS_ORIGIN.split(',').map(o => o.trim()));
+  allowedOrigins.push(...process.env.CORS_ORIGIN.split(',').map((o) => o.trim()))
 }
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow if no origin (e.g. mobile apps, curl) or if it's explicitly allowed
-    const isAllowed = !origin || 
-                      allowedOrigins.includes(origin) || 
-                      allowedOrigins.includes('*') || 
-                      origin.endsWith('.onrender.com');
+    const isAllowed =
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      allowedOrigins.includes('*') ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.netlify.app') ||
+      origin.endsWith('.railway.app') ||
+      origin.endsWith('.pages.dev')
 
     if (isAllowed) {
-      callback(null, true);
+      callback(null, true)
     } else {
-      callback(null, false); // Reject cleanly without throwing a 500 server error
+      callback(null, false)
     }
   },
   credentials: true,
@@ -49,10 +54,23 @@ app.use((req, res, next) => {
   next()
 })
 
-// Database Connection
+// Deployment Health Check Endpoints
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    name: 'ALCHEMII Backend API',
+    version: '1.0.0'
+  })
+})
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date() })
+})
+
+// Connect Database
 connectDB()
 
-// Routes
+// API Routes
 app.use('/api', routes)
 
 // 404 Handler
@@ -63,7 +81,7 @@ app.use((req, res) => {
 // Error Handler
 app.use((err, req, res, next) => {
   console.error('Error:', err)
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error'
   })
 })
@@ -71,7 +89,12 @@ app.use((err, req, res, next) => {
 // Start Server
 app.listen(PORT, () => {
   console.log(`✅ Server is running on http://localhost:${PORT}`)
-  console.log(`📚 API Documentation at http://localhost:${PORT}/api/health`)
-  const hasDB = !!(process.env.MONGODB_URI || process.env.MONGO_URI || process.env.MONGO_URL || process.env.DATABASE_URL);
+  console.log(`📚 Health check endpoint at http://localhost:${PORT}/health`)
+  const hasDB = !!(
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI ||
+    process.env.MONGO_URL ||
+    process.env.DATABASE_URL
+  )
   console.log(`🗄️  Database: ${hasDB ? 'Configured' : 'Not Configured (Optional)'}`)
 })
